@@ -9,26 +9,30 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Checkout Official Source
+      - name: Get Latest Stable Tag
+        id: get_tag
+        run: |
+          # 自动获取官方最新的稳定版 Release Tag（排除掉 rc 等预览版）
+          LATEST_TAG=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "[DEBUG] 监测到官方最新稳定版本为: $LATEST_TAG"
+
+      - name: Checkout Source
         uses: actions/checkout@v4
         with:
           repository: SagerNet/sing-box
-          ref: v1.13.13
+          ref: ${{ steps.get_tag.outputs.tag }}
 
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
 
-      - name: Build Hardcore Minimal
+      - name: Build and Optimize
         run: |
-          # 1. 进到官方的主程序入口目录
           cd cmd/sing-box
-          
-          # 2. 核心魔法：利用 Go 官方支持的 tags 结合 ldflags 进行极致空间和内存剪裁
-          # -tags "with_vless,with_tcp" 告诉编译器只激活 VLESS 协议和 TCP 传输层
-          # -s -w 剔除所有符号表与调试调试信息
-          # -trimpath 隐藏所有本地编译路径，减少冗余字符
+          # 使用原生 Tags 裁剪核心，彻底丢掉无用协议代码
+          # -s -w -trimpath 最大化压榨二进制体积，完美适配 64MB 内存
           CGO_ENABLED=0 go build -v \
             -tags "with_vless,with_tcp" \
             -trimpath \
@@ -38,8 +42,13 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.13.13
+          tag_name: ${{ steps.get_tag.outputs.tag }}
           files: sing-box
           draft: false
           prerelease: false
-          body: "Hardcore surgical minimal build: VLESS + TCP + HTTP only. 100% stable dependency chain."
+          body: |
+            ## Sing-box 极致精简版
+            
+            - **同步官方版本**: `${{ steps.get_tag.outputs.tag }}`
+            - **协议裁剪**: 仅保留 `VLESS` + `TCP` (无 `sniffing` 模块)
+            - **性能优化**: 针对 64MB 低内存 VPS 深度优化，纯静态链接，剔除所有调试符号表。
