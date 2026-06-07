@@ -30,7 +30,7 @@ jobs:
       - name: Build Sing-box Minimal
         run: |
           # 依然只保留 VLESS 和 TCP
-          go build -v -tags "with_vless,with_tcp" -ldflags "-s -w -buildid=" -o sing-box ./cmd/sing-box
+          CGO_ENABLED=0 go build -v -tags "with_vless,with_tcp" -ldflags "-s -w -buildid=" -o sing-box ./cmd/sing-box
 
       - name: Release
         uses: softprops/action-gh-release@v2
