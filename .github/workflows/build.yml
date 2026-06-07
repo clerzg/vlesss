@@ -1,46 +1,11 @@
-name: Build and Release Sing-box Minimal
-
-on:
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Get Latest Tag
-        id: get_tag
+- name: Build Hardcore Minimal
         run: |
-          LATEST_TAG=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
-
-      - name: Checkout Source
-        uses: actions/checkout@v4
-        with:
-          repository: SagerNet/sing-box
-          ref: ${{ steps.get_tag.outputs.tag }}
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-
-      - name: Install UPX
-        run: sudo apt-get update && sudo apt-get install -y upx
-
-      - name: Build and Compress
+          # 确保所有的依赖都已经初始化
+          go mod tidy
+          # 编译自定义的极简入口
+          CGO_ENABLED=0 go build -v -ldflags "-s -w -buildid=" -o sing-box minimal-main.go
+          
+      - name: Compress
         run: |
-          # 静态编译：剔除 CGO，减小体积并提高兼容性
-          CGO_ENABLED=0 go build -v -tags "with_vless,with_tcp" -ldflags "-s -w -buildid=" -o sing-box ./cmd/sing-box
-          # 使用 UPX 进行极致压缩
-          upx --ultra-brute sing-box
-
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.get_tag.outputs.tag }}
-          files: sing-box
-          draft: false
-          prerelease: false
-          body: "Build from ${{ steps.get_tag.outputs.tag }} with UPX compression and minimal tags (vless, tcp)."
+          # 使用 --best 模式快速压缩
+          upx --best sing-box
