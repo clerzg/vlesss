@@ -27,7 +27,7 @@ jobs:
       - name: Build Hardcore Minimal
         run: |
           go mod tidy
-          CGO_ENABLED=0 go build -v -ldflags "-s -w -buildid=" -o sing-box minimal-main.go
+          CGO_ENABLED=0 go build -ldflags "-s -w -buildid=" -o sing-box
 
       - name: Compress
         run: |
