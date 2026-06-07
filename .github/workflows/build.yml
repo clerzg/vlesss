@@ -20,36 +20,20 @@ jobs:
         with:
           go-version: '1.22'
 
-      - name: Surgical Cut - Remove Unused Protocols
-        run: |
-          # 1. 进到官方程序真正的入口目录
-          cd cmd/sing-box
-          
-          # 2. 覆盖重写官方的 main.go，强行只注入你需要的协议核心
-          cat <<EOF > main.go
-          package main
-
-          import (
-              "context"
-              "github.com/sagernet/sing-box/cmd/sing-box/cmd"
-              
-              # 仅物理保留并强制注册这三个核心组件，其余全部不引入
-              _ "github.com/sagernet/sing-box/inbound/vless"
-              _ "github.com/sagernet/sing-box/transport/tcp"
-              _ "github.com/sagernet/sing-box/transport/internet/http"
-          )
-
-          func main() {
-              cmd.ExecuteContext(context.Background())
-          }
-          EOF
-
       - name: Build Hardcore Minimal
         run: |
-          # 进到修改后的主入口目录编译
+          # 1. 进到官方的主程序入口目录
           cd cmd/sing-box
-          go mod tidy
-          CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -buildid=" -o ../../sing-box .
+          
+          # 2. 核心魔法：利用 Go 官方支持的 tags 结合 ldflags 进行极致空间和内存剪裁
+          # -tags "with_vless,with_tcp" 告诉编译器只激活 VLESS 协议和 TCP 传输层
+          # -s -w 剔除所有符号表与调试调试信息
+          # -trimpath 隐藏所有本地编译路径，减少冗余字符
+          CGO_ENABLED=0 go build -v \
+            -tags "with_vless,with_tcp" \
+            -trimpath \
+            -ldflags "-s -w -buildid=" \
+            -o ../../sing-box
 
       - name: Release
         uses: softprops/action-gh-release@v2
