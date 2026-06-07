@@ -12,7 +12,7 @@ jobs:
       - name: Get Latest Stable Tag
         id: get_tag
         run: |
-          # 自动获取官方最新的稳定版 Release Tag（排除掉 rc 等预览版）
+          # 自动获取官方最新的稳定版 Release Tag
           LATEST_TAG=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
           echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
           echo "[DEBUG] 监测到官方最新稳定版本为: $LATEST_TAG"
@@ -28,16 +28,27 @@ jobs:
         with:
           go-version: '1.22'
 
+      - name: Install UPX
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y upx
+
       - name: Build and Optimize
         run: |
           cd cmd/sing-box
-          # 使用原生 Tags 裁剪核心，彻底丢掉无用协议代码
-          # -s -w -trimpath 最大化压榨二进制体积，完美适配 64MB 内存
+          # 使用原生 Tags 裁剪核心（仅保留 VLESS 和 TCP）
+          # 同时利用 -s -w -trimpath 先把 Go 自身的符号表和调试信息剥离干净，这有利于 UPX 识别格式
           CGO_ENABLED=0 go build -v \
             -tags "with_vless,with_tcp" \
             -trimpath \
             -ldflags "-s -w -buildid=" \
             -o ../../sing-box
+
+      - name: UPX Compress Execution
+        run: |
+          # 使用 --best 配合 --lzma 算法，这是目前对新版 Go 二进制格式兼容性最好、且压缩率极高的组合
+          # 避开了可能导致卡死或格式报错的 --ultra-brute
+          upx --best --lzma sing-box
 
       - name: Release
         uses: softprops/action-gh-release@v2
@@ -47,8 +58,9 @@ jobs:
           draft: false
           prerelease: false
           body: |
-            ## Sing-box 极致精简版
+            ## Sing-box 极致精简压榨版
             
             - **同步官方版本**: `${{ steps.get_tag.outputs.tag }}`
-            - **协议裁剪**: 仅保留 `VLESS` + `TCP` (无 `sniffing` 模块)
-            - **性能优化**: 针对 64MB 低内存 VPS 深度优化，纯静态链接，剔除所有调试符号表。
+            - **协议裁剪**: 仅保留 `VLESS` + `TCP` 核心
+            - **体积压榨**: 经历 Go 编译器裁剪 (`-s -w -trimpath`) + **UPX 壳级极致压缩**
+            - **小鸡福音**: 专门针对 64MB 内存小鸡优化，下载极速，运行时解压，不额外常驻内存。
