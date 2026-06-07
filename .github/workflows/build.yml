@@ -1,11 +1,42 @@
-- name: Build Hardcore Minimal
+name: Build and Release Sing-box Minimal
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+        with:
+          repository: SagerNet/sing-box
+          # 请确保这里指定了具体的 tag 或分支
+          ref: v1.13.13 
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Install UPX
+        run: sudo apt-get update && sudo apt-get install -y upx
+
+      - name: Build Hardcore Minimal
         run: |
-          # 确保所有的依赖都已经初始化
           go mod tidy
-          # 编译自定义的极简入口
           CGO_ENABLED=0 go build -v -ldflags "-s -w -buildid=" -o sing-box minimal-main.go
-          
+
       - name: Compress
         run: |
-          # 使用 --best 模式快速压缩
           upx --best sing-box
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.13.13
+          files: sing-box
+          draft: false
+          prerelease: false
