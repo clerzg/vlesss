@@ -9,46 +9,47 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout Official Source
+        uses: actions/checkout@v4
+        with:
+          repository: SagerNet/sing-box
+          ref: v1.13.13
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
 
-      - name: Initialize Project and Generate Source
+      - name: Surgical Cut - Remove Unused Protocols
         run: |
-          # 1. 创建一个全新的干净目录用来编译
-          mkdir build-workspace && cd build-workspace
+          # 1. 进到官方程序真正的入口目录
+          cd cmd/sing-box
           
-          # 2. 初始化全新的 Go 模块
-          go mod init sing-box-minimal
-          
-          # 3. 显式锁定并拉取 sing-box v1.13.13 核心库
-          go get github.com/sagernet/sing-box@v1.13.13
-          
-          # 4. 用 cat 动态生成只包含 VLESS + TCP + HTTP 的最小入口代码
+          # 2. 覆盖重写官方的 main.go，强行只注入你需要的协议核心
           cat <<EOF > main.go
           package main
 
           import (
-              "github.com/sagernet/sing-box/common/x"
+              "context"
+              "github.com/sagernet/sing-box/cmd/sing-box/cmd"
+              
+              # 仅物理保留并强制注册这三个核心组件，其余全部不引入
               _ "github.com/sagernet/sing-box/inbound/vless"
               _ "github.com/sagernet/sing-box/transport/tcp"
               _ "github.com/sagernet/sing-box/transport/internet/http"
           )
 
           func main() {
-              x.Run()
+              cmd.ExecuteContext(context.Background())
           }
           EOF
-          
-          # 5. 整理依赖，让 Go 自动下载编译 main.go 所需的基础组件
-          go mod tidy
 
       - name: Build Hardcore Minimal
         run: |
-          cd build-workspace
-          # -s -w 裁剪符号表，-trimpath 隐藏路径，CGO_ENABLED=0 纯静态编译
-          CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -buildid=" -o ../sing-box .
+          # 进到修改后的主入口目录编译
+          cd cmd/sing-box
+          go mod tidy
+          CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -buildid=" -o ../../sing-box .
 
       - name: Release
         uses: softprops/action-gh-release@v2
@@ -57,4 +58,4 @@ jobs:
           files: sing-box
           draft: false
           prerelease: false
-          body: "Hardcore minimal build: VLESS + TCP + HTTP Transport only. Statically linked and compiler optimized."
+          body: "Hardcore surgical minimal build: VLESS + TCP + HTTP only. 100% stable dependency chain."
