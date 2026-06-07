@@ -1,0 +1,42 @@
+name: Build and Release Sing-box Stable
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Get Latest Tag
+        id: get_tag
+        run: |
+          # 获取官方仓库的最新 Tag
+          LATEST_TAG=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+
+      - name: Checkout Source
+        uses: actions/checkout@v4
+        with:
+          repository: SagerNet/sing-box
+          ref: ${{ steps.get_tag.outputs.tag }} # 切换到最新稳定版 Tag
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build Sing-box Minimal
+        run: |
+          # 依然只保留 VLESS 和 TCP
+          go build -v -tags "with_vless,with_tcp" -ldflags "-s -w -buildid=" -o sing-box ./cmd/sing-box
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_tag.outputs.tag }} # 使用获取到的版本号发布
+          files: sing-box
+          draft: false
+          prerelease: false
+          body: "Build from official stable release: ${{ steps.get_tag.outputs.tag }} with minimal tags: vless, tcp."
