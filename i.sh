@@ -28,7 +28,7 @@ DOWNLOAD_URL="${MY_RELEASE_URL}/sing-box-linux-${SB_ARCH}.tar.gz"
 mkdir -p /usr/local/bin
 
 # 流式下载并直接解压到 /usr/local/bin，不产生临时垃圾文件，极省内存
-wget -O- "${DOWNLOAD_URL}" | tar -xz -C /usr/local/bin/
+wget -qO- "${DOWNLOAD_URL}" | tar -xz -C /usr/local/bin/
 
 if [ $? -eq 0 ] && [ -s ${SB_BIN} ]; then
     chmod +x ${SB_BIN}
