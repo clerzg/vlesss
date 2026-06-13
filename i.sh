@@ -6,10 +6,6 @@ CONFIG_FILE="${CONFIG_PATH}/config.json"
 INIT_FILE="/etc/init.d/sing-box"
 MY_RELEASE_URL="https://github.com/clerzg/vlesss/releases/latest/download"
 
-if ! command -v curl >/dev/null 2>&1; then
-    apk add curl >/dev/null 2>&1
-fi
-
 INFO=$(curl -s "https://www.cloudflare.com/cdn-cgi/trace")
 IP=$(echo "${INFO}" | awk -F= '/^ip=/ {print $2}')
 LOC=$(echo "${INFO}" | awk -F= '/^loc=/ {print $2}')
