@@ -57,7 +57,7 @@ fi
 mkdir -p ${CONFIG_PATH}
 # sing-box 紧凑版配置，动态注入端口和 UUID
 cat <<EOF > ${CONFIG_FILE}
-{"log":{"disabled":true},"inbounds":[{"type":"vless","listen":"0.0.0.0","listen_port":${PORT},"users":[{"uuid":"${UUID}"}],"transport":{"type":"http","host":[]}}],"outbounds":[{"type":"direct"}],"experimental":{"cache_file":{"enabled":false}}}
+{"log":{"disabled":true},"inbounds":[{"type":"vless","listen":"::","listen_port":${PORT},"users":[{"uuid":"${UUID}"}],"transport":{"type":"http","host":[]}}],"outbounds":[{"type":"direct"}],"experimental":{"cache_file":{"enabled":false}}}
 EOF
 
 # 写入 OpenRC 服务脚本
