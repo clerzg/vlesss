@@ -76,10 +76,6 @@ command_background="yes"
 
 respawn_delay=1
 respawn_max=0
-
-depend() {
-    after net
-}
 EOF
 
 chmod +x ${INIT_FILE}
