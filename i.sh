@@ -1,5 +1,5 @@
 #!/bin/sh
-
+clear
 SB_BIN="/usr/local/bin/sing-box"
 CONFIG_PATH="/etc/sing-box"
 CONFIG_FILE="${CONFIG_PATH}/config.json"
