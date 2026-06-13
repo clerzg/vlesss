@@ -78,7 +78,7 @@ respawn_delay=1
 respawn_max=0
 
 depend() {
-    need net
+    after net
 }
 EOF
 
