@@ -83,9 +83,10 @@ depend() {
 EOF
 
 chmod +x ${INIT_FILE}
+
 rc-update add sing-box default >/dev/null 2>&1
-rc-service sing-box stop >/dev/null 2>&1
-rc-service sing-box start
+rc-service sing-box zap >/dev/null 2>&1
+rc-service sing-box restart
 
 echo ""
 echo "=========================================="
