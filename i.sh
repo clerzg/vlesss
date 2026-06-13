@@ -6,7 +6,11 @@ CONFIG_FILE="${CONFIG_PATH}/config.json"
 INIT_FILE="/etc/init.d/sing-box"
 MY_RELEASE_URL="https://github.com/clerzg/vlesss/releases/latest/download"
 
-INFO=$(wget -qO- "https://www.cloudflare.com/cdn-cgi/trace")
+if ! command -v curl >/dev/null 2>&1; then
+    apk add curl >/dev/null 2>&1
+fi
+
+INFO=$(curl -s "https://www.cloudflare.com/cdn-cgi/trace")
 IP=$(echo "${INFO}" | awk -F= '/^ip=/ {print $2}')
 LOC=$(echo "${INFO}" | awk -F= '/^loc=/ {print $2}')
 PORT=$(awk 'BEGIN{srand(); print int(rand()*(60000-10000+1))+10000}')
@@ -22,7 +26,7 @@ esac
 DOWNLOAD_URL="${MY_RELEASE_URL}/sing-box-linux-${SB_ARCH}.tar.gz"
 mkdir -p /usr/local/bin
 
-wget --progress=dot:giga -O- "${DOWNLOAD_URL}" | tar -xz -C /usr/local/bin/
+curl -L -# "${DOWNLOAD_URL}" | tar -xz -C /usr/local/bin/
 
 if [ $? -eq 0 ] && [ -s ${SB_BIN} ]; then
     chmod +x ${SB_BIN}
@@ -59,15 +63,14 @@ command_args="run -c /etc/sing-box/config.json"
 pidfile="/run/${RC_SVCNAME}.pid"
 command_background="yes"
 
-#export GOGC=20
-#export GOMEMLIMIT=32MiB
+export GOGC=20
+export GOMEMLIMIT=32MiB
 
 respawn_delay=1
 respawn_max=0
 EOF
 
 chmod +x ${INIT_FILE}
-
 rc-update add sing-box default
 rc-service sing-box start
 
