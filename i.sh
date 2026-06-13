@@ -22,7 +22,7 @@ esac
 DOWNLOAD_URL="${MY_RELEASE_URL}/sing-box-linux-${SB_ARCH}.tar.gz"
 mkdir -p /usr/local/bin
 
-curl -L -# "${DOWNLOAD_URL}" | tar -xz -C /usr/local/bin/
+curl -sL -# "${DOWNLOAD_URL}" | tar -xz -C /usr/local/bin/
 
 if [ $? -eq 0 ] && [ -s ${SB_BIN} ]; then
     chmod +x ${SB_BIN}
