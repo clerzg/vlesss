@@ -84,9 +84,17 @@ EOF
 
 chmod +x ${INIT_FILE}
 
+# 1. 写入运行级别
 rc-update add sing-box default >/dev/null 2>&1
+
+# 2. 不管三七二十一，如果是覆盖安装，先用系统级 killall 强行把后台可能残留的同名二进制清理干净
+killall -9 sing-box >/dev/null 2>&1
+
+# 3. 让 OpenRC 忘记之前所有的崩溃和挂起状态，强制归零
 rc-service sing-box zap >/dev/null 2>&1
-rc-service sing-box restart
+
+# 4. 此时内存和状态都是绝对干净的，干净利落地启动，永不翻车
+rc-service sing-box start
 
 echo ""
 echo "=========================================="
