@@ -5,5 +5,5 @@
 
 安装命令
 ```
-wget -O- https://github.com/clerzg/vlesss/raw/refs/heads/main/i.sh | sh
+wget -qO- https://github.com/clerzg/vlesss/raw/refs/heads/main/i.sh | sh
 ```
