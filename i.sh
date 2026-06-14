@@ -60,7 +60,7 @@ pidfile="/run/${RC_SVCNAME}.pid"
 command_background="yes"
 
 export GOGC=20
-export GOMEMLIMIT=32MiB
+export GOMEMLIMIT=25MiB
 
 respawn_delay=1
 respawn_max=0
