@@ -4,18 +4,15 @@ SB_BIN="/usr/local/bin/sing-box"
 CONFIG_PATH="/etc/sing-box"
 CONFIG_FILE="${CONFIG_PATH}/config.json"
 INIT_FILE="/etc/init.d/sing-box"
+# 💡 使用官方标准 Release 固定的归档包
 MY_RELEASE_URL="https://github.com/SagerNet/sing-box/releases/download/v1.11.3"
-
-if ! command -v openssl >/dev/null 2>&1; then
-    apk update && apk add --no-cache openssl >/dev/null 2>&1
-fi
 
 INFO=$(curl -s "https://www.cloudflare.com/cdn-cgi/trace")
 IP=$(echo "${INFO}" | awk -F= '/^ip=/ {print $2}')
 LOC=$(echo "${INFO}" | awk -F= '/^loc=/ {print $2}')
 PORT=$(awk 'BEGIN{srand(); print int(rand()*(60000-10000+1))+10000}')
 
-echo "==== 架构探测 ===="
+echo "==== 下载官方全功能版 sing-box ===="
 ARCH=$(uname -m)
 case "$ARCH" in
     x86_64|amd64) SB_ARCH="amd64" ;;
@@ -23,34 +20,14 @@ case "$ARCH" in
     *) SB_ARCH="amd64" ;;
 esac
 
-# 💡 核心调试：拼接最终直链并无保留打印到屏幕
 DOWNLOAD_URL="${MY_RELEASE_URL}/sing-box-1.11.3-linux-${SB_ARCH}.tar.gz"
-echo ""
-echo "📢 [DEBUG] 正在尝试下载的官方完整版真实直链为："
-echo "👉 ${DOWNLOAD_URL} 👈"
-echo ""
-
 mkdir -p /usr/local/bin
 
-echo "==== 开始下载与解压（已开启全面回显）===="
-# 💡 核心调试：去掉所有静音和管道过滤，让原生进度条和错误100%直接暴露在屏幕上
-curl -L "${DOWNLOAD_URL}" | tar -xz -C /usr/local/bin/
-
-# 💡 调试：看一眼解压出来到底是个什么文件夹
-echo ""
-echo "📢 [DEBUG] 当前 /usr/local/bin/ 目录下的内容列表为："
-ls -la /usr/local/bin/
-echo ""
-
-# 自动处理可能存在的内层同名套娃目录
-if [ -d "/usr/local/bin/sing-box-1.11.3-linux-${SB_ARCH}" ]; then
-    mv /usr/local/bin/sing-box-1.11.3-linux-${SB_ARCH}/sing-box /usr/local/bin/sing-box
-    rm -rf /usr/local/bin/sing-box-1.11.3-linux-${SB_ARCH}
-fi
+# 💡 稳健管道流解压
+curl -sL "${DOWNLOAD_URL}" | tar -xz --strip-components=1 -C /usr/local/bin/
 
 if [ $? -eq 0 ] && [ -s ${SB_BIN} ]; then
     chmod +x ${SB_BIN}
-    echo "解压成功！"
 else
     echo "错误: 无法下载或解压 sing-box"
     exit 1
@@ -72,13 +49,9 @@ fi
 
 mkdir -p ${CONFIG_PATH}
 
-openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
-  -keyout ${CONFIG_PATH}/server.key \
-  -out ${CONFIG_PATH}/server.crt \
-  -subj "/CN=tbm-auth.alicdn.com" >/dev/null 2>&1
-
+# 💡 核心变阵：抛弃不招人待见且极易被卡证书的 TLS，降维打击，直接走纯净的 HTTP/2 明文多路复用
 cat <<EOF > ${CONFIG_FILE}
-{"log":{"disabled":true},"inbounds":[{"type":"vless","listen":"::","listen_port":${PORT},"users":[{"uuid":"${UUID}"}],"tls":{"enabled":true,"server_name":"tbm-auth.alicdn.com","certificate_path":"${CONFIG_PATH}/server.crt","key_path":"${CONFIG_PATH}/server.key"},"transport":{"type":"ws","path":"/vless-ws","headers":{"Host":"tbm-auth.alicdn.com"}}}],"outbounds":[{"type":"direct"}],"experimental":{"cache_file":{"enabled":false}}}
+{"log":{"disabled":true},"inbounds":[{"type":"vless","listen":"::","listen_port":${PORT},"users":[{"uuid":"${UUID}"}],"transport":{"type":"http","host":["tbm-auth.alicdn.com"],"idle_timeout":"15s"}}],"outbounds":[{"type":"direct"}],"experimental":{"cache_file":{"enabled":false}}}
 EOF
 
 cat << 'EOF' > ${INIT_FILE}
@@ -102,10 +75,11 @@ rc-service sing-box restart
 
 echo ""
 echo "=========================================="
-echo "🎉 sing-box 现代加密版部署完成！"
+echo "🎉 sing-box 终极 H2 明文破限速版部署完成！"
 echo ""
-echo "🔗 复制下方链接，直接在客户端中导入："
+echo "🔗 复制下方链接，直接在客户端中一键导入："
 echo "------------------------------------------"
-echo "vless://${UUID}@${IP}:${PORT}?security=tls&sni=tbm-auth.alicdn.com&allowInsecure=1&type=ws&path=%2Fvless-ws&host=tbm-auth.alicdn.com#${LOC}_WS_TLS"
+# 💡 拼接出最纯正的 vless+h2 明文分享链接，关闭 TLS 验证，直接Host白名单突防
+echo "vless://${UUID}@${IP}:${PORT}?security=none&type=http&host=tbm-auth.alicdn.com#${LOC}_H2_CLEAR"
 echo "------------------------------------------"
 echo "=========================================="
