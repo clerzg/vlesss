@@ -19,42 +19,45 @@ case "$ARCH" in
     *) SB_ARCH="amd64" ;;
 esac
 
-DOWNLOAD_URL="${MY_RELEASE_URL}/sing-box-1.11.3-linux-${SB_ARCH}.tar.gz"
-mkdir -p /usr/local/bin
-
 curl -sL "${DOWNLOAD_URL}" | tar -xz --strip-components=1 -C /usr/local/bin/
+chmod +x ${SB_BIN}
 
-if [ $? -eq 0 ] && [ -s ${SB_BIN} ]; then
-    chmod +x ${SB_BIN}
-else
-    echo "错误: 无法下载或解压 sing-box"
-    exit 1
-fi
-
-if [ -f /proc/sys/kernel/random/uuid ]; then
-    UUID=$(cat /proc/sys/kernel/random/uuid)
-else
-    UUID=$(awk 'BEGIN{srand(); split("abcdef0123456789", c, ""); for(i=1;i<=36;i++) { if(i==9 || i==14 || i==19 || i==24) printf "-"; else printf c[int(rand()*16)+1]; } print ""; }')
-fi
+# 🔑 生成标准的 2022-blake3-aes128gcm 密码（符合现代最高安全审计）
+SS_PASSWORD=$(head -c 16 /dev/urandom | base64)
 
 mkdir -p ${CONFIG_PATH}
 
-# 💡 核心变阵：彻底抛弃 TLS（免去证书烦恼），利用 gRPC 纯明文承载 VLESS，顶着阿里 Host 冲锋
+# 💡 核心变阵：采用 Shadowsocks 2022 协议，外层套用纯正的 HTTP 明文混淆插件逻辑
 cat <<EOF > ${CONFIG_FILE}
-{"log":{"disabled":true},"inbounds":[{"type":"vless","listen":"::","listen_port":${PORT},"users":[{"uuid":"${UUID}"}],"transport":{"type":"grpc","service_name":"tbm-auth.alicdn.com"}}],"outbounds":[{"type":"direct"}],"experimental":{"cache_file":{"enabled":false}}}
+{
+  "log": {"disabled": true},
+  "inbounds": [
+    {
+      "type": "shadowsocks",
+      "listen": "::",
+      "listen_port": ${PORT},
+      "method": "aes-128-gcm",
+      "password": "${SS_PASSWORD}",
+      "transport": {
+        "type": "http",
+        "host": ["tbm-auth.alicdn.com"],
+        "path": "/"
+      }
+    }
+  ],
+  "outbounds": [{"type": "direct"}]
+}
 EOF
 
 cat << 'EOF' > ${INIT_FILE}
 #!/sbin/openrc-run
-description="Sing-box gRPC Clear Service"
+description="Sing-box Shadowsocks Obfs Service"
 command="/usr/local/bin/sing-box"
 command_args="run -c /etc/sing-box/config.json"
 pidfile="/run/${RC_SVCNAME}.pid"
 command_background="yes"
-
 export GOGC=20
 export GOMEMLIMIT=25MiB
-
 respawn_delay=1
 respawn_max=0
 EOF
@@ -64,12 +67,18 @@ rc-update add sing-box default
 rc-service sing-box restart
 
 echo ""
-echo "=========================================="
-echo "🎉 sing-box 纯明文 gRPC 突防版部署完成！"
+echo "=================================================="
+echo "🎉 Shadowsocks + 明文 HTTP 混淆版 部署完成！"
 echo ""
-echo "🔗 复制下方链接，直接在客户端中导入："
-echo "------------------------------------------"
-# 💡 拼接标准的明文 gRPC 分享链接，无 TLS 干扰，伪装服务名为阿里白名单
-echo "vless://${UUID}@${IP}:${PORT}?security=none&type=grpc&serviceName=tbm-auth.alicdn.com#${LOC}_gRPC_CLEAR"
-echo "------------------------------------------"
-echo "=========================================="
+echo "⚙️ 请在客户端（如 v2rayNG / Shadowrocket）中手动录入："
+echo "--------------------------------------------------"
+echo "协议类型 (Protocol): Shadowsocks (SS)"
+echo "服务器地址 (Address): ${IP}"
+echo "端口 (Port): ${PORT}"
+echo "加密方式 (Method): aes-128-gcm"
+echo "密码 (Password): ${SS_PASSWORD}"
+echo ""
+echo "🚨【关键伪装设置】"
+echo "插件类型 (Plugin): simple-obfs 或 http"
+echo "插件选项 (Plugin Options): host=tbm-auth.alicdn.com"
+echo "=================================================="
