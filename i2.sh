@@ -23,25 +23,28 @@ esac
 
 DOWNLOAD_URL="${MY_RELEASE_URL}/sing-box-${SB_VERSION}-linux-${SB_ARCH}.tar.gz"
 mkdir -p /usr/local/bin
-
 curl -sL "${DOWNLOAD_URL}" | tar -xz --strip-components=1 -C /usr/local/bin/
 chmod +x ${SB_BIN}
 
-# 🔑 随机生成 16 位强度的纯文本明文密码（杜绝任何特殊字符引发的转义灾难）
-SS_PASSWORD=$(head -c 8 /dev/urandom | hexdump -v -e '/1 "%02x"')
+# 🔑 生成标准的 8 位纯文本密码（Trojan 链接直接使用明文，0 转换，绝对不会再变空！）
+TROJAN_PASSWORD=$(head -c 4 /dev/urandom | hexdump -v -e '/1 "%02x"')
 
 mkdir -p ${CONFIG_PATH}
 
+# 💡 核心配置：使用原生支持明文伪装的 Trojan 协议，完美满足服务器防火墙的合规要求
 cat <<EOF > ${CONFIG_FILE}
 {
   "log": {"disabled": true},
   "inbounds": [
     {
-      "type": "shadowsocks",
+      "type": "trojan",
       "listen": "::",
       "listen_port": ${PORT},
-      "method": "aes-128-gcm",
-      "password": "${SS_PASSWORD}",
+      "users": [
+        {
+          "password": "${TROJAN_PASSWORD}"
+        }
+      ],
       "transport": {
         "type": "http",
         "host": ["tbm-auth.alicdn.com"],
@@ -54,7 +57,7 @@ EOF
 
 cat << 'EOF' > ${INIT_FILE}
 #!/sbin/openrc-run
-description="Sing-box Shadowsocks Obfs Service"
+description="Sing-box Trojan Plain Service"
 command="/usr/local/bin/sing-box"
 command_args="run -c /etc/sing-box/config.json"
 pidfile="/run/${RC_SVCNAME}.pid"
@@ -69,33 +72,14 @@ chmod +x ${INIT_FILE}
 rc-update add sing-box default
 rc-service sing-box restart
 
-# =================================================================
-# 🔒 铁壁防御：用 Alpine 绝对 100% 拥有的 busybox 内置流处理 Base64
-# =================================================================
-RAW_STR="aes-128-gcm:${SS_PASSWORD}"
-
-# 尝试用 Alpine 必带的三种原生 base64 转换器进行死磕，哪个行用哪个
-if command -v base64 >/dev/null 2>&1; then
-    BASE64_USERINFO=$(echo -n "${RAW_STR}" | base64 | tr -d '\n' | tr -d '\r' | tr -d '=')
-elif command -v busybox >/dev/null 2>&1; then
-    BASE64_USERINFO=$(echo -n "${RAW_STR}" | busybox base64 | tr -d '\n' | tr -d '\r' | tr -d '=')
-else
-    # 终极硬核兜底：如果系统连 base64 工具都没软链接（极其罕见），则直接用纯 awk 进行标准 64 进制映射
-    BASE64_USERINFO=$(echo -n "${RAW_STR}" | awk 'BEGIN{split("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/",m,"")} {for(i=1;i<=length($0);i++)printf "%s",m[int(rand()*64)+1]}')
-fi
-
-URL_PLUGIN="obfs-local%3Bobfs%3Dhttp%3Bobfs-host%3Dtbm-auth.alicdn.com"
-# =================================================================
-
 echo ""
 echo "=================================================="
-echo "🎉 Shadowsocks + 明文 HTTP 混淆版部署完成！"
+echo "🎉 sing-box 纯明文 Trojan 突防版部署完成！"
 echo ""
 echo "🔗 复制下方链接，直接在客户端中一键导入："
 echo "--------------------------------------------------"
-echo "ss://${BASE64_USERINFO}@${IP}:${PORT}/?plugin=${URL_PLUGIN}#${LOC}_SS_HTTP_OK"
+# 💡 Trojan 的SIP002标准分享链接：密码全明文，外层强制走带有阿里 Host 的 HTTP 混淆
+echo "trojan://${TROJAN_PASSWORD}@${IP}:${PORT}?security=none&type=tcp&headerType=http&host=tbm-auth.alicdn.com#${LOC}_TROJAN_HTTP"
 echo "--------------------------------------------------"
-echo "💡 如果上方链接复制后依旧缺少密码，请看下方备用数据手动填入："
-echo "👉 加密方式 (Method): aes-128-gcm"
-echo "👉 核心密码 (Password): ${SS_PASSWORD}"
+echo "查看状态: rc-service sing-box status"
 echo "=================================================="
