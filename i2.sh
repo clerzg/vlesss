@@ -39,40 +39,18 @@ else
 fi
 
 # =================================================================
-# 🔑 核心硬核修复：抛弃 openssl，纯原生黑魔法生成 Reality 密钥与 ShortID
+# 🔑 终极完美修复：利用刚刚安装的 sing-box 官方命令原生生成合法的 Reality 密钥
 # =================================================================
-# 1. 提取系统纯随机 16 进制流，100% 不依赖任何外部软件
-RAW_HEX=$(head -c 32 /dev/urandom | hexdump -v -e '/1 "%02x"')
-SHORT_ID=$(head -c 8 /dev/urandom | hexdump -v -e '/1 "%02x"')
-
-# 2. 纯 awk 实现自定义的 URL-Safe Base64 编码，完美避开 openssl not found 恶疾
-PRIV_KEY=$(echo -n "${RAW_HEX}" | awk '
-BEGIN {
-    split("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_", map, "");
-}
-{
-    len = length($0);
-    for (i=1; i<=len; i+=3) {
-        # 纯手工位移模拟，精准搓出标准的私钥格式
-        printf "%s", map[int(rand()*64)+1];
-    }
-}
-')
-
-PUB_KEY=$(echo -n "${RAW_HEX}_pub" | awk '
-BEGIN {
-    split("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_", map, "");
-}
-{
-    len = length($0);
-    for (i=1; i<=len; i+=3) {
-        printf "%s", map[int(rand()*64)+1];
-    }
-}
-')
-# =================================================================
-
 mkdir -p ${CONFIG_PATH}
+
+# 让 sing-box 自己生成标准的 X25519 密钥对并用 awk 精准切割提取
+KEY_JSON=$(${SB_BIN} generate reality-keypair)
+PRIV_KEY=$(echo "${KEY_JSON}" | awk -F'"' '/private_key/ {print $4}')
+PUB_KEY=$(echo "${KEY_JSON}" | awk -F'"' '/public_key/ {print $4}')
+
+# 同样利用系统底层生成合法的 16 位 ShortID
+SHORT_ID=$(head -c 8 /dev/urandom | hexdump -v -e '/1 "%02x"')
+# =================================================================
 
 # 写入完美的 Reality 单行一行流 JSON 配置
 cat <<EOF > ${CONFIG_FILE}
@@ -100,11 +78,11 @@ rc-service sing-box restart
 
 echo ""
 echo "=========================================="
-echo "🎉 sing-box 零依赖 Reality 版部署完成！"
+echo "🎉 sing-box 官方原生 Reality 版部署完成！"
 echo ""
 echo "🔗 复制下方链接，直接在客户端中导入："
 echo "------------------------------------------"
-echo "vless://${UUID}@${IP}:${PORT}?security=reality&sni=tbm-auth.alicdn.com&pbk=${PUB_KEY}&sid=${SHORT_ID}&flow=xtls-rprx-vision&type=tcp#${LOC}_REALITY_FIX"
+echo "vless://${UUID}@${IP}:${PORT}?security=reality&sni=tbm-auth.alicdn.com&pbk=${PUB_KEY}&sid=${SHORT_ID}&flow=xtls-rprx-vision&type=tcp#${LOC}_REALITY_FINAL"
 echo "------------------------------------------"
 echo "查看状态: rc-service sing-box status"
 echo "重启服务: rc-service sing-box restart"
