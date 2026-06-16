@@ -8,10 +8,12 @@ INIT_FILE="/etc/init.d/sing-box"
 SB_VERSION="1.11.3"
 MY_RELEASE_URL="https://github.com/SagerNet/sing-box/releases/download/v${SB_VERSION}"
 
+# 🚨 固定测试端口
+PORT=44378
+
 INFO=$(curl -s "https://www.cloudflare.com/cdn-cgi/trace")
 IP=$(echo "${INFO}" | awk -F= '/^ip=/ {print $2}')
 LOC=$(echo "${INFO}" | awk -F= '/^loc=/ {print $2}')
-PORT=$(awk 'BEGIN{srand(); print int(rand()*(60000-10000+1))+10000}')
 
 echo "==== 下载官方全功能版 sing-box ===="
 ARCH=$(uname -m)
@@ -21,6 +23,8 @@ case "$ARCH" in
     *) SB_ARCH="amd64" ;;
 esac
 
+DOWNLOAD_URL="${MY_RELEASE_URL}/sing-box-${SB_VERSION}-linux-${SB_ARCH}.tar.gz"
+mkdir -p /usr/local/bin
 curl -sL "${DOWNLOAD_URL}" | tar -xz --strip-components=1 -C /usr/local/bin/
 chmod +x ${SB_BIN}
 
@@ -32,8 +36,7 @@ fi
 
 mkdir -p ${CONFIG_PATH}
 
-# 💡 核心变阵：配置一个正规的 Trojan 协议入站（防止服务器防火墙报明文裸奔）
-# 同时利用 transport 的 http 探测功能。如果是阿里 Host，直接在内网回落并下发 302 跳转
+# 💡 核心配置：固定端口 44378，部署支持回落探测的明文 Trojan 架构
 cat <<EOF > ${CONFIG_FILE}
 {
   "log": {"disabled": true},
@@ -57,7 +60,7 @@ EOF
 
 cat << 'EOF' > ${INIT_FILE}
 #!/sbin/openrc-run
-description="Sing-box 302 Redirect Gate"
+description="Sing-box 302 Redirect Gate (Testing)"
 command="/usr/local/bin/sing-box"
 command_args="run -c /etc/sing-box/config.json"
 pidfile="/run/${RC_SVCNAME}.pid"
@@ -74,13 +77,12 @@ rc-service sing-box restart
 
 echo ""
 echo "=================================================="
-echo "🎉 sing-box 302 连环诱饵突防版 部署完成！"
+echo "⚙️  sing-box 302 连环突防版【测试模式】部署完成！"
 echo ""
-echo "🔗 复制下方链接，直接在客户端中一键导入："
+echo "🔗 复制下方固定端口链接，直接在客户端中导入："
 echo "--------------------------------------------------"
-# 💡 一键导入链接：默认初始请求顶着阿里Host和明文标签冲向网关，内核接收后自动完成302通道接管
-echo "trojan://${UUID}@${IP}:${PORT}?security=none&type=tcp&headerType=http&host=tbm-auth.alicdn.com&path=%2Fali-bypass#${LOC}_302_ALI_BYPASS"
+echo "trojan://${UUID}@${IP}:${PORT}?security=none&type=tcp&headerType=http&host=tbm-auth.alicdn.com&path=%2Fali-bypass#${LOC}_302_TEST_44378"
 echo "--------------------------------------------------"
-echo "当前外网监听端口: ${PORT}"
-echo "查看状态: rc-service sing-box status"
+echo "固定测试端口: ${PORT}"
+echo "查看服务状态: rc-service sing-box status"
 echo "=================================================="
