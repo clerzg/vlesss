@@ -4,10 +4,10 @@ SB_BIN="/usr/local/bin/sing-box"
 CONFIG_PATH="/etc/sing-box"
 CONFIG_FILE="${CONFIG_PATH}/config.json"
 INIT_FILE="/etc/init.d/sing-box"
-# 💡 切换为官方全功能 Release 的确切版本下载源
+# 💡 官方全功能 Release 下载源
 MY_RELEASE_URL="https://github.com/SagerNet/sing-box/releases/download/v1.11.3"
 
-# 💡 确保本地有 openssl 工具来生成证书，没有就静音安装
+# 💡 确保本地有 openssl 工具来生成证书
 if ! command -v openssl >/dev/null 2>&1; then
     apk update && apk add --no-cache openssl >/dev/null 2>&1
 fi
@@ -25,18 +25,18 @@ case "$ARCH" in
     *) SB_ARCH="amd64" ;;
 esac
 
-# 💡 修正为官方标准的压缩包全名
 DOWNLOAD_URL="${MY_RELEASE_URL}/sing-box-1.11.3-linux-${SB_ARCH}.tar.gz"
 mkdir -p /usr/local/bin
 
-# 💡 管道流不落盘防 OOM + awk 单行计数 + --strip-components=1 完美剥离内层目录
-echo -n "正在流式下载解压: 0 KB"
-curl -sL "${DOWNLOAD_URL}" | awk 'BEGIN { ORS = "" } { loaded += length($0) + 1; printf "\r正在流式下载解压: %.2f MB", loaded / 1024 / 1024 } END { print "\n" }' | tar -xz --strip-components=1 -C /usr/local/bin/ --wildcards "*/sing-box"
+# 💡 纯原生解压流：用 curl -sL 静音下载，直接用 tar -xv 并在解压时只抓取 sing-box 二进制
+# 这样既做到了 0 磁盘占用，又利用 tar 原生内核管道，绝不损坏数据
+curl -sL "${DOWNLOAD_URL}" | tar -xz --strip-components=1 -C /usr/local/bin/ "*/sing-box"
 
 if [ $? -eq 0 ] && [ -s ${SB_BIN} ]; then
     chmod +x ${SB_BIN}
+    echo "解压成功！"
 else
-    echo "错误: 无法下载sing-box"
+    echo "错误: 无法下载或解压 sing-box"
     exit 1
 fi
 
@@ -56,13 +56,13 @@ fi
 
 mkdir -p ${CONFIG_PATH}
 
-# 💡 在写入配置前，本地离线为白名单域名搓出一套 TLS 证书
+# 本地离线为白名单域名搓出一套 TLS 证书
 openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
   -keyout ${CONFIG_PATH}/server.key \
   -out ${CONFIG_PATH}/server.crt \
   -subj "/CN=tbm-auth.alicdn.com" >/dev/null 2>&1
 
-# 💡 严格遵循你习惯的单行一行流 JSON 格式，全面升级为 WebSocket + TLS
+# 严格遵循单行一行流 JSON 格式，升级为 WebSocket + TLS
 cat <<EOF > ${CONFIG_FILE}
 {"log":{"disabled":true},"inbounds":[{"type":"vless","listen":"::","listen_port":${PORT},"users":[{"uuid":"${UUID}"}],"tls":{"enabled":true,"server_name":"tbm-auth.alicdn.com","certificate_path":"${CONFIG_PATH}/server.crt","key_path":"${CONFIG_PATH}/server.key"},"transport":{"type":"ws","path":"/vless-ws","headers":{"Host":"tbm-auth.alicdn.com"}}}],"outbounds":[{"type":"direct"}],"experimental":{"cache_file":{"enabled":false}}}
 EOF
@@ -94,10 +94,6 @@ echo "🔗 复制下方链接，直接在客户端中导入："
 echo "------------------------------------------"
 echo "vless://${UUID}@${IP}:${PORT}?security=tls&sni=tbm-auth.alicdn.com&allowInsecure=1&type=ws&path=%2Fvless-ws&host=tbm-auth.alicdn.com#${LOC}_WS_TLS"
 echo "------------------------------------------"
-echo ""
-echo "💡 提示：导入后客户端会自动开启“跳过证书验证”，放心使用。"
-echo "=========================================="
 echo "查看状态: rc-service sing-box status"
 echo "重启服务: rc-service sing-box restart"
-echo "停止服务: rc-service sing-box stop"
 echo "=========================================="
