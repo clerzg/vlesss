@@ -4,10 +4,8 @@ SB_BIN="/usr/local/bin/sing-box"
 CONFIG_PATH="/etc/sing-box"
 CONFIG_FILE="${CONFIG_PATH}/config.json"
 INIT_FILE="/etc/init.d/sing-box"
-# 💡 官方标准全功能稳定版 Release 固定的归档包
 MY_RELEASE_URL="https://github.com/SagerNet/sing-box/releases/download/v1.11.3"
 
-# 💡 确保本地有 openssl 工具来生成证书
 if ! command -v openssl >/dev/null 2>&1; then
     apk update && apk add --no-cache openssl >/dev/null 2>&1
 fi
@@ -17,7 +15,7 @@ IP=$(echo "${INFO}" | awk -F= '/^ip=/ {print $2}')
 LOC=$(echo "${INFO}" | awk -F= '/^loc=/ {print $2}')
 PORT=$(awk 'BEGIN{srand(); print int(rand()*(60000-10000+1))+10000}')
 
-echo "==== 下载官方全功能版 sing-box ===="
+echo "==== 架构探测 ===="
 ARCH=$(uname -m)
 case "$ARCH" in
     x86_64|amd64) SB_ARCH="amd64" ;;
@@ -25,12 +23,30 @@ case "$ARCH" in
     *) SB_ARCH="amd64" ;;
 esac
 
+# 💡 核心调试：拼接最终直链并无保留打印到屏幕
 DOWNLOAD_URL="${MY_RELEASE_URL}/sing-box-1.11.3-linux-${SB_ARCH}.tar.gz"
+echo ""
+echo "📢 [DEBUG] 正在尝试下载的官方完整版真实直链为："
+echo "👉 ${DOWNLOAD_URL} 👈"
+echo ""
+
 mkdir -p /usr/local/bin
 
-# 💡 终极修复：去掉复杂的通配符过滤，利用 --strip-components=1 强制剥离压缩包的外层套娃目录
-# 直接让 tar 把里面的核心可执行文件精准解压释放到 /usr/local/bin/ 目录下，0磁盘占用，稳如泰山
-curl -sL "${DOWNLOAD_URL}" | tar -xz --strip-components=1 -C /usr/local/bin/
+echo "==== 开始下载与解压（已开启全面回显）===="
+# 💡 核心调试：去掉所有静音和管道过滤，让原生进度条和错误100%直接暴露在屏幕上
+curl -L "${DOWNLOAD_URL}" | tar -xz -C /usr/local/bin/
+
+# 💡 调试：看一眼解压出来到底是个什么文件夹
+echo ""
+echo "📢 [DEBUG] 当前 /usr/local/bin/ 目录下的内容列表为："
+ls -la /usr/local/bin/
+echo ""
+
+# 自动处理可能存在的内层同名套娃目录
+if [ -d "/usr/local/bin/sing-box-1.11.3-linux-${SB_ARCH}" ]; then
+    mv /usr/local/bin/sing-box-1.11.3-linux-${SB_ARCH}/sing-box /usr/local/bin/sing-box
+    rm -rf /usr/local/bin/sing-box-1.11.3-linux-${SB_ARCH}
+fi
 
 if [ $? -eq 0 ] && [ -s ${SB_BIN} ]; then
     chmod +x ${SB_BIN}
@@ -56,13 +72,11 @@ fi
 
 mkdir -p ${CONFIG_PATH}
 
-# 本地离线为白名单域名搓出一套 TLS 证书
 openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
   -keyout ${CONFIG_PATH}/server.key \
   -out ${CONFIG_PATH}/server.crt \
   -subj "/CN=tbm-auth.alicdn.com" >/dev/null 2>&1
 
-# 严格遵循单行一行流 JSON 格式，升级为 WebSocket + TLS
 cat <<EOF > ${CONFIG_FILE}
 {"log":{"disabled":true},"inbounds":[{"type":"vless","listen":"::","listen_port":${PORT},"users":[{"uuid":"${UUID}"}],"tls":{"enabled":true,"server_name":"tbm-auth.alicdn.com","certificate_path":"${CONFIG_PATH}/server.crt","key_path":"${CONFIG_PATH}/server.key"},"transport":{"type":"ws","path":"/vless-ws","headers":{"Host":"tbm-auth.alicdn.com"}}}],"outbounds":[{"type":"direct"}],"experimental":{"cache_file":{"enabled":false}}}
 EOF
@@ -94,6 +108,4 @@ echo "🔗 复制下方链接，直接在客户端中导入："
 echo "------------------------------------------"
 echo "vless://${UUID}@${IP}:${PORT}?security=tls&sni=tbm-auth.alicdn.com&allowInsecure=1&type=ws&path=%2Fvless-ws&host=tbm-auth.alicdn.com#${LOC}_WS_TLS"
 echo "------------------------------------------"
-echo "查看状态: rc-service sing-box status"
-echo "重启服务: rc-service sing-box restart"
 echo "=========================================="
