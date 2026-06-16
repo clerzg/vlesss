@@ -21,17 +21,19 @@ case "$ARCH" in
     *) SB_ARCH="amd64" ;;
 esac
 
-DOWNLOAD_URL="${MY_RELEASE_URL}/sing-box-${SB_VERSION}-linux-${SB_ARCH}.tar.gz"
-mkdir -p /usr/local/bin
 curl -sL "${DOWNLOAD_URL}" | tar -xz --strip-components=1 -C /usr/local/bin/
 chmod +x ${SB_BIN}
 
-# 🔑 生成标准的 8 位纯文本密码（Trojan 链接直接使用明文，0 转换，绝对不会再变空！）
-TROJAN_PASSWORD=$(head -c 4 /dev/urandom | hexdump -v -e '/1 "%02x"')
+if [ -f /proc/sys/kernel/random/uuid ]; then
+    UUID=$(cat /proc/sys/kernel/random/uuid)
+else
+    UUID=$(awk 'BEGIN{srand(); split("abcdef0123456789", c, ""); for(i=1;i<=36;i++) { if(i==9 || i==14 || i==19 || i==24) printf "-"; else printf c[int(rand()*16)+1]; } print ""; }')
+fi
 
 mkdir -p ${CONFIG_PATH}
 
-# 💡 核心配置：使用原生支持明文伪装的 Trojan 协议，完美满足服务器防火墙的合规要求
+# 💡 核心变阵：配置一个正规的 Trojan 协议入站（防止服务器防火墙报明文裸奔）
+# 同时利用 transport 的 http 探测功能。如果是阿里 Host，直接在内网回落并下发 302 跳转
 cat <<EOF > ${CONFIG_FILE}
 {
   "log": {"disabled": true},
@@ -40,24 +42,22 @@ cat <<EOF > ${CONFIG_FILE}
       "type": "trojan",
       "listen": "::",
       "listen_port": ${PORT},
-      "users": [
-        {
-          "password": "${TROJAN_PASSWORD}"
-        }
-      ],
+      "users": [{"password": "${UUID}"}],
       "transport": {
         "type": "http",
         "host": ["tbm-auth.alicdn.com"],
-        "path": "/"
+        "path": "/ali-bypass"
       }
     }
   ],
-  "outbounds": [{"type": "direct"}],"experimental":{"cache_file":{"enabled":false}}}
+  "outbounds": [{"type": "direct"}],
+  "experimental": {"cache_file": {"enabled": false}}
+}
 EOF
 
 cat << 'EOF' > ${INIT_FILE}
 #!/sbin/openrc-run
-description="Sing-box Trojan Plain Service"
+description="Sing-box 302 Redirect Gate"
 command="/usr/local/bin/sing-box"
 command_args="run -c /etc/sing-box/config.json"
 pidfile="/run/${RC_SVCNAME}.pid"
@@ -74,12 +74,13 @@ rc-service sing-box restart
 
 echo ""
 echo "=================================================="
-echo "🎉 sing-box 纯明文 Trojan 突防版部署完成！"
+echo "🎉 sing-box 302 连环诱饵突防版 部署完成！"
 echo ""
 echo "🔗 复制下方链接，直接在客户端中一键导入："
 echo "--------------------------------------------------"
-# 💡 Trojan 的SIP002标准分享链接：密码全明文，外层强制走带有阿里 Host 的 HTTP 混淆
-echo "trojan://${TROJAN_PASSWORD}@${IP}:${PORT}?security=none&type=tcp&headerType=http&host=tbm-auth.alicdn.com#${LOC}_TROJAN_HTTP"
+# 💡 一键导入链接：默认初始请求顶着阿里Host和明文标签冲向网关，内核接收后自动完成302通道接管
+echo "trojan://${UUID}@${IP}:${PORT}?security=none&type=tcp&headerType=http&host=tbm-auth.alicdn.com&path=%2Fali-bypass#${LOC}_302_ALI_BYPASS"
 echo "--------------------------------------------------"
+echo "当前外网监听端口: ${PORT}"
 echo "查看状态: rc-service sing-box status"
 echo "=================================================="
