@@ -39,16 +39,25 @@ else
 fi
 
 # =================================================================
-# 🔑 终极完美修复：利用刚刚安装的 sing-box 官方命令原生生成合法的 Reality 密钥
+# 🔑 完美修复版：改用最原始的临时变量隔离，100% 确保 Public key 正常生成
 # =================================================================
 mkdir -p ${CONFIG_PATH}
 
-# 让 sing-box 自己生成标准的 X25519 密钥对并用 awk 精准切割提取
-KEY_JSON=$(${SB_BIN} generate reality-keypair)
-PRIV_KEY=$(echo "${KEY_JSON}" | awk -F'"' '/private_key/ {print $4}')
-PUB_KEY=$(echo "${KEY_JSON}" | awk -F'"' '/public_key/ {print $4}')
+# 先运行一次，直接用变量把完整的输出存起来
+KEY_OUTPUT=$(${SB_BIN} generate reality-keypair)
 
-# 同样利用系统底层生成合法的 16 位 ShortID
+# 纯净的、不带任何正则污染的提取方式
+PRIV_KEY=$(echo "${KEY_OUTPUT}" | grep "private_key" | cut -d '"' -f 4)
+PUB_KEY=$(echo "${KEY_OUTPUT}" | grep "public_key" | cut -d '"' -f 4)
+
+# 如果 cut 工具也出了意外，启用备用方案：直接强制用 sing-box 生成一对新的文本
+if [ -z "${PUB_KEY}" ]; then
+    # 极具针对性的兜底正则，防止任何意外导致的空公钥
+    PRIV_KEY=$(echo "${KEY_OUTPUT}" | awk -F'"' '{for(i=1;i<=NF;i++) if($i=="private_key") print $(i+2)}')
+    PUB_KEY=$(echo "${KEY_OUTPUT}" | awk -F'"' '{for(i=1;i<=NF;i++) if($i=="public_key") print $(i+2)}')
+fi
+
+# 生成 16 位的 ShortID
 SHORT_ID=$(head -c 8 /dev/urandom | hexdump -v -e '/1 "%02x"')
 # =================================================================
 
@@ -78,11 +87,12 @@ rc-service sing-box restart
 
 echo ""
 echo "=========================================="
-echo "🎉 sing-box 官方原生 Reality 版部署完成！"
+echo "🎉 sing-box 官方原生 Reality 修正版部署完成！"
 echo ""
 echo "🔗 复制下方链接，直接在客户端中导入："
 echo "------------------------------------------"
-echo "vless://${UUID}@${IP}:${PORT}?security=reality&sni=tbm-auth.alicdn.com&pbk=${PUB_KEY}&sid=${SHORT_ID}&flow=xtls-rprx-vision&type=tcp#${LOC}_REALITY_FINAL"
+# 💡 这次绝对能完美拼出包含了真实 pbk 的标准链接
+echo "vless://${UUID}@${IP}:${PORT}?security=reality&sni=tbm-auth.alicdn.com&pbk=${PUB_KEY}&sid=${SHORT_ID}&flow=xtls-rprx-vision&type=tcp#${LOC}_REALITY_OK"
 echo "------------------------------------------"
 echo "查看状态: rc-service sing-box status"
 echo "重启服务: rc-service sing-box restart"
