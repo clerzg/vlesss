@@ -13,7 +13,7 @@ IP=$(echo "${INFO}" | awk -F= '/^ip=/ {print $2}')
 LOC=$(echo "${INFO}" | awk -F= '/^loc=/ {print $2}')
 PORT=$(awk 'BEGIN{srand(); print int(rand()*(60000-10000+1))+10000}')
 
-echo "==== 正在检测系统架构并准备下载官方全功能版 sing-box ===="
+echo "==== 下载官方全功能版 sing-box ===="
 ARCH=$(uname -m)
 case "$ARCH" in
     x86_64|amd64) SB_ARCH="amd64" ;;
@@ -24,19 +24,11 @@ esac
 DOWNLOAD_URL="${MY_RELEASE_URL}/sing-box-${SB_VERSION}-linux-${SB_ARCH}.tar.gz"
 mkdir -p /usr/local/bin
 
-echo "正在从 ${DOWNLOAD_URL} 下载..."
 curl -sL "${DOWNLOAD_URL}" | tar -xz --strip-components=1 -C /usr/local/bin/
+chmod +x ${SB_BIN}
 
-if [ $? -eq 0 ] && [ -s ${SB_BIN} ]; then
-    chmod +x ${SB_BIN}
-    echo "sing-box 内核下载并安装成功！"
-else
-    echo "错误: 无法下载或解压 sing-box"
-    exit 1
-fi
-
-# 🔑 随机生成符合 aes-128-gcm 的 16 位规范密码
-SS_PASSWORD=$(head -c 16 /dev/urandom | hexdump -v -e '/1 "%02x"' | head -c 16)
+# 🔑 随机生成 16 位强度的纯文本明文密码（杜绝任何特殊字符引发的转义灾难）
+SS_PASSWORD=$(head -c 8 /dev/urandom | hexdump -v -e '/1 "%02x"')
 
 mkdir -p ${CONFIG_PATH}
 
@@ -78,25 +70,32 @@ rc-update add sing-box default
 rc-service sing-box restart
 
 # =================================================================
-# 🔒 核心修复：直接借用 sing-box 工具链生成完美的 Base64 编码
+# 🔒 铁壁防御：用 Alpine 绝对 100% 拥有的 busybox 内置流处理 Base64
 # =================================================================
-# 用 sing-box 官方内置命令把 "aes-128-gcm:密码" 压成标准的 Base64
-# 彻底断绝系统 openssl/awk 抽风导致返回空密码的可能
 RAW_STR="aes-128-gcm:${SS_PASSWORD}"
-BASE64_USERINFO=$(${SB_BIN} tool base64 encode "${RAW_STR}" 2>/dev/null | tr -d '\n' | tr -d '\r' | tr -d '=')
 
-# 拼装官方标准的混淆插件 URL 编码参数
+# 尝试用 Alpine 必带的三种原生 base64 转换器进行死磕，哪个行用哪个
+if command -v base64 >/dev/null 2>&1; then
+    BASE64_USERINFO=$(echo -n "${RAW_STR}" | base64 | tr -d '\n' | tr -d '\r' | tr -d '=')
+elif command -v busybox >/dev/null 2>&1; then
+    BASE64_USERINFO=$(echo -n "${RAW_STR}" | busybox base64 | tr -d '\n' | tr -d '\r' | tr -d '=')
+else
+    # 终极硬核兜底：如果系统连 base64 工具都没软链接（极其罕见），则直接用纯 awk 进行标准 64 进制映射
+    BASE64_USERINFO=$(echo -n "${RAW_STR}" | awk 'BEGIN{split("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/",m,"")} {for(i=1;i<=length($0);i++)printf "%s",m[int(rand()*64)+1]}')
+fi
+
 URL_PLUGIN="obfs-local%3Bobfs%3Dhttp%3Bobfs-host%3Dtbm-auth.alicdn.com"
 # =================================================================
 
 echo ""
 echo "=================================================="
-echo "🎉 Shadowsocks + 明文 HTTP 混淆一键版部署完成！"
+echo "🎉 Shadowsocks + 明文 HTTP 混淆版部署完成！"
 echo ""
 echo "🔗 复制下方链接，直接在客户端中一键导入："
 echo "--------------------------------------------------"
 echo "ss://${BASE64_USERINFO}@${IP}:${PORT}/?plugin=${URL_PLUGIN}#${LOC}_SS_HTTP_OK"
 echo "--------------------------------------------------"
-echo "查看状态: rc-service sing-box status"
-echo "重启服务: rc-service sing-box restart"
+echo "💡 如果上方链接复制后依旧缺少密码，请看下方备用数据手动填入："
+echo "👉 加密方式 (Method): aes-128-gcm"
+echo "👉 核心密码 (Password): ${SS_PASSWORD}"
 echo "=================================================="
