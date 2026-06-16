@@ -34,22 +34,43 @@ else
     UUID=$(awk 'BEGIN{srand(); split("abcdef0123456789", c, ""); for(i=1;i<=36;i++) { if(i==9 || i==14 || i==19 || i==24) printf "-"; else printf c[int(rand()*16)+1]; } print ""; }')
 fi
 
+# 🔑 让 sing-box 生成标准的 REALITY 密钥对
+KEY_JSON=$(${SB_BIN} generate reality-keypair)
+PRIV_KEY=$(echo "${KEY_JSON}" | awk -F'"' '/private_key/ {print $4}')
+PUB_KEY=$(echo "${KEY_JSON}" | awk -F'"' '/public_key/ {print $4}')
+SHORT_ID=$(head -c 8 /dev/urandom | hexdump -v -e '/1 "%02x"')
+
 mkdir -p ${CONFIG_PATH}
 
-# 💡 核心配置：固定端口 44378，部署支持回落探测的明文 Trojan 架构
+# 💡 终极变阵：回归纯正 VLESS + REALITY，直接借用真白名单 HTTPS 域名进行无缝前置和回落
 cat <<EOF > ${CONFIG_FILE}
 {
   "log": {"disabled": true},
   "inbounds": [
     {
-      "type": "trojan",
+      "type": "vless",
       "listen": "::",
       "listen_port": ${PORT},
-      "users": [{"password": "${UUID}"}],
-      "transport": {
-        "type": "http",
-        "host": ["tbm-auth.alicdn.com"],
-        "path": "/ali-bypass"
+      "users": [
+        {
+          "uuid": "${UUID}",
+          "flow": "xtls-rprx-vision"
+        }
+      ],
+      "tls": {
+        "enabled": true,
+        "server_name": "tbm-auth.alicdn.com",
+        "reality": {
+          "enabled": true,
+          "handshake": {
+            "server": "tbm-auth.alicdn.com",
+            "server_port": 443
+          },
+          "private_key": "${PRIV_KEY}",
+          "short_id": [
+            "${SHORT_ID}"
+          ]
+        }
       }
     }
   ],
@@ -60,7 +81,7 @@ EOF
 
 cat << 'EOF' > ${INIT_FILE}
 #!/sbin/openrc-run
-description="Sing-box 302 Redirect Gate (Testing)"
+description="Sing-box VLESS Reality Service"
 command="/usr/local/bin/sing-box"
 command_args="run -c /etc/sing-box/config.json"
 pidfile="/run/${RC_SVCNAME}.pid"
@@ -77,12 +98,13 @@ rc-service sing-box restart
 
 echo ""
 echo "=================================================="
-echo "⚙️  sing-box 302 连环突防版【测试模式】部署完成！"
+echo "🎉 sing-box 纯正 VLESS+REALITY 极速版部署完成！"
 echo ""
-echo "🔗 复制下方固定端口链接，直接在客户端中导入："
+echo "🔗 复制下方链接，直接在客户端中一键导入："
 echo "--------------------------------------------------"
-echo "trojan://${UUID}@${IP}:${PORT}?security=none&type=tcp&headerType=http&host=tbm-auth.alicdn.com&path=%2Fali-bypass#${LOC}_302_TEST_44378"
+# 💡 生成标准的、100% 走纯真阿里 TLS SNI 的直连分享链接
+echo "vless://${UUID}@${IP}:${PORT}?security=reality&sni=tbm-auth.alicdn.com&pbk=${PUB_KEY}&sid=${SHORT_ID}&flow=xtls-rprx-vision&type=tcp#${LOC}_REALITY_DIRECT"
 echo "--------------------------------------------------"
 echo "固定测试端口: ${PORT}"
-echo "查看服务状态: rc-service sing-box status"
+echo "查看运行状态: rc-service sing-box status"
 echo "=================================================="
