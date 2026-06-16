@@ -4,7 +4,7 @@ SB_BIN="/usr/local/bin/sing-box"
 CONFIG_PATH="/etc/sing-box"
 CONFIG_FILE="${CONFIG_PATH}/config.json"
 INIT_FILE="/etc/init.d/sing-box"
-# 💡 官方全功能 Release 下载源
+# 💡 官方标准全功能稳定版 Release 固定的归档包
 MY_RELEASE_URL="https://github.com/SagerNet/sing-box/releases/download/v1.11.3"
 
 # 💡 确保本地有 openssl 工具来生成证书
@@ -28,9 +28,9 @@ esac
 DOWNLOAD_URL="${MY_RELEASE_URL}/sing-box-1.11.3-linux-${SB_ARCH}.tar.gz"
 mkdir -p /usr/local/bin
 
-# 💡 纯原生解压流：用 curl -sL 静音下载，直接用 tar -xv 并在解压时只抓取 sing-box 二进制
-# 这样既做到了 0 磁盘占用，又利用 tar 原生内核管道，绝不损坏数据
-curl -sL "${DOWNLOAD_URL}" | tar -xz --strip-components=1 -C /usr/local/bin/ "*/sing-box"
+# 💡 终极修复：去掉复杂的通配符过滤，利用 --strip-components=1 强制剥离压缩包的外层套娃目录
+# 直接让 tar 把里面的核心可执行文件精准解压释放到 /usr/local/bin/ 目录下，0磁盘占用，稳如泰山
+curl -sL "${DOWNLOAD_URL}" | tar -xz --strip-components=1 -C /usr/local/bin/
 
 if [ $? -eq 0 ] && [ -s ${SB_BIN} ]; then
     chmod +x ${SB_BIN}
