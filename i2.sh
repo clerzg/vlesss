@@ -32,7 +32,7 @@ chmod +x ${SB_BIN}
 
 mkdir -p ${CONFIG_PATH}
 
-# 💡 彻底扒光：退回到最纯粹的 Shadowsocks TCP 裸流，无任何 transport 包裹
+# 💡 核心变阵：开启 sing-box 官方原生的 HTTP 传输层，完美对接现代客户端
 cat <<EOF > ${CONFIG_FILE}
 {
   "log": {"disabled": true},
@@ -42,7 +42,14 @@ cat <<EOF > ${CONFIG_FILE}
       "listen": "::",
       "listen_port": ${PORT},
       "method": "aes-128-gcm",
-      "password": "${SS_PASSWORD}"
+      "password": "${SS_PASSWORD}",
+      "transport": {
+        "type": "http",
+        "host": [
+          "tbm-auth.alicdn.com"
+        ],
+        "path": "/"
+      }
     }
   ],
   "outbounds": [{"type": "direct"}],
@@ -52,7 +59,7 @@ EOF
 
 cat << 'EOF' > ${INIT_FILE}
 #!/sbin/openrc-run
-description="Sing-box Shadowsocks Pure TCP"
+description="Sing-box Shadowsocks TCP Obfs"
 command="/usr/local/bin/sing-box"
 command_args="run -c /etc/sing-box/config.json"
 pidfile="/run/${RC_SVCNAME}.pid"
@@ -69,15 +76,17 @@ rc-service sing-box restart
 
 echo ""
 echo "=================================================="
-echo "🎉 sing-box 纯净 Shadowsocks 裸流一键部署完成！"
+echo "🎉 sing-box SS + TCP 明文混淆[标准兼容版] 部署完成！"
 echo ""
-echo "🔗 复制下方标准 SIP002 链接，直接在客户端中一键导入："
+echo "🔗 复制下方现代标准链接，直接在客户端中一键导入："
 echo "--------------------------------------------------"
-echo "ss://YWVzLTEyOC1nY206NWRmYmQ1MzcxMzdjYjZkNQ==@${IP}:${PORT}#${LOC}_SS_PURE_TEST"
+echo "ss://YWVzLTEyOC1nY206NWRmYmQ1MzcxMzdjYjZkNQ==@${IP}:${PORT}?type=http&host=tbm-auth.alicdn.com&path=%2F#${LOC}_SS_TCP_OBFS"
 echo "--------------------------------------------------"
-echo "🚨 客户端配置提示："
-echo "👉 传输协议/Plugin/插件: 全部关闭 / None / 留空"
-echo "👉 伪装类型/Header Type: None"
+echo "💡 手动核对指标（如一键导入后不通请手动对照修改）："
+echo "👉 传输协议/Network/Transport: tcp"
+echo "👉 伪装类型/Header Type: http"
+echo "👉 伪装域名/Host: tbm-auth.alicdn.com"
+echo "👉 路径/Path: /"
 echo "--------------------------------------------------"
 echo "固定测试端口: ${PORT}"
 echo "查看运行状态: rc-service sing-box status"
