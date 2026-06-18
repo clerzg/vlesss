@@ -8,9 +8,7 @@ INIT_FILE="/etc/init.d/sing-box"
 SB_VERSION="1.11.3"
 MY_RELEASE_URL="https://github.com/SagerNet/sing-box/releases/download/v${SB_VERSION}"
 
-# 🚨 严格锁定测试端口 47680
 PORT=47680
-# 🔑 统一使用测试密码
 SS_PASSWORD="5dfbd537137cb6d5"
 
 INFO=$(curl -s "https://www.cloudflare.com/cdn-cgi/trace")
@@ -32,7 +30,7 @@ chmod +x ${SB_BIN}
 
 mkdir -p ${CONFIG_PATH}
 
-# 💡 修正底层语法：改用 sing-box 官方认账的 plugin 混淆架构
+# 服务端依然使用成熟稳定的 obfs-server 接收明文 HTTP
 cat <<EOF > ${CONFIG_FILE}
 {
   "log": {"disabled": true},
@@ -71,8 +69,10 @@ rc-service sing-box restart
 
 echo ""
 echo "=================================================="
-echo "🎉 sing-box SS + 原生 plugin 混淆版部署完成！"
+echo "🎉 服务端配置成功！下面为您提供客户端直连 URL 链接："
 echo "=================================================="
-echo "固定测试端口: ${PORT}"
-echo "查看运行状态: rc-service sing-box status"
+echo "👉 复制下方链接在 sing-box 客户端中添加 Profile，"
+echo "👉 并在 Type（类型）中直接选择 URL（远程导入）："
+echo "--------------------------------------------------"
+echo "ss://YWVzLTEyOC1nY206NWRmYmQ1MzcxMzdjYjZkNQ==@${IP}:${PORT}?plugin=simple-obfs%3Bobfs%3Dhttp%3Bobfs-host%3Dtbm-auth.alicdn.com#${LOC}_SS_OBFS"
 echo "=================================================="
