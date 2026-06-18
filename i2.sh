@@ -32,7 +32,7 @@ chmod +x ${SB_BIN}
 
 mkdir -p ${CONFIG_PATH}
 
-# 💡 核心变阵：开启 sing-box 官方原生的 HTTP 传输层，完美对接现代客户端
+# 💡 修正底层语法：改用 sing-box 官方认账的 plugin 混淆架构
 cat <<EOF > ${CONFIG_FILE}
 {
   "log": {"disabled": true},
@@ -43,13 +43,8 @@ cat <<EOF > ${CONFIG_FILE}
       "listen_port": ${PORT},
       "method": "aes-128-gcm",
       "password": "${SS_PASSWORD}",
-      "transport": {
-        "type": "http",
-        "host": [
-          "tbm-auth.alicdn.com"
-        ],
-        "path": "/"
-      }
+      "plugin": "obfs-server",
+      "plugin_options": "obfs=http"
     }
   ],
   "outbounds": [{"type": "direct"}],
@@ -59,7 +54,7 @@ EOF
 
 cat << 'EOF' > ${INIT_FILE}
 #!/sbin/openrc-run
-description="Sing-box Shadowsocks TCP Obfs"
+description="Sing-box Shadowsocks Native Obfs"
 command="/usr/local/bin/sing-box"
 command_args="run -c /etc/sing-box/config.json"
 pidfile="/run/${RC_SVCNAME}.pid"
@@ -76,18 +71,8 @@ rc-service sing-box restart
 
 echo ""
 echo "=================================================="
-echo "🎉 sing-box SS + TCP 明文混淆[标准兼容版] 部署完成！"
-echo ""
-echo "🔗 复制下方现代标准链接，直接在客户端中一键导入："
-echo "--------------------------------------------------"
-echo "ss://YWVzLTEyOC1nY206NWRmYmQ1MzcxMzdjYjZkNQ==@${IP}:${PORT}?type=http&host=tbm-auth.alicdn.com&path=%2F#${LOC}_SS_TCP_OBFS"
-echo "--------------------------------------------------"
-echo "💡 手动核对指标（如一键导入后不通请手动对照修改）："
-echo "👉 传输协议/Network/Transport: tcp"
-echo "👉 伪装类型/Header Type: http"
-echo "👉 伪装域名/Host: tbm-auth.alicdn.com"
-echo "👉 路径/Path: /"
-echo "--------------------------------------------------"
+echo "🎉 sing-box SS + 原生 plugin 混淆版部署完成！"
+echo "=================================================="
 echo "固定测试端口: ${PORT}"
 echo "查看运行状态: rc-service sing-box status"
 echo "=================================================="
