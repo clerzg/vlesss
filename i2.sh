@@ -25,8 +25,6 @@ esac
 
 DOWNLOAD_URL="${MY_RELEASE_URL}/sing-box-${SB_VERSION}-linux-${SB_ARCH}.tar.gz"
 mkdir -p /usr/local/bin
-curl -sL "${DOWNLOAD_URL}" | tar -xz --strip-components=1 -C /usr/local/bin/
-chmod +x ${SB_BIN}
 
 mkdir -p ${CONFIG_PATH}
 
@@ -50,21 +48,7 @@ cat <<EOF > ${CONFIG_FILE}
 }
 EOF
 
-cat << 'EOF' > ${INIT_FILE}
-#!/sbin/openrc-run
-description="Sing-box Shadowsocks Native Obfs"
-command="/usr/local/bin/sing-box"
-command_args="run -c /etc/sing-box/config.json"
-pidfile="/run/${RC_SVCNAME}.pid"
-command_background="yes"
-export GOGC=20
-export GOMEMLIMIT=25MiB
-respawn_delay=1
-respawn_max=0
-EOF
 
-chmod +x ${INIT_FILE}
-rc-update add sing-box default
 rc-service sing-box restart
 
 echo ""
