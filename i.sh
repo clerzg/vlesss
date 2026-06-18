@@ -11,7 +11,7 @@ IP=$(echo "${INFO}" | awk -F= '/^ip=/ {print $2}')
 LOC=$(echo "${INFO}" | awk -F= '/^loc=/ {print $2}')
 PORT=$(awk 'BEGIN{srand(); print int(rand()*(60000-10000+1))+10000}')
 
-echo "==== 下载 sing-box ===="
+echo "下载 sing-box"
 ARCH=$(uname -m)
 case "$ARCH" in
     x86_64|amd64) SB_ARCH="amd64" ;;
@@ -71,10 +71,9 @@ rc-update add sing-box default
 rc-service sing-box start
 
 echo ""
-echo "=========================================="
 echo "🎉 sing-box 部署完成！"
 echo ""
-echo "节点链接 (VLESS + HTTP-Transport 格式)："
+echo "🚀节点链接："
 echo "vless://${UUID}@${IP}:${PORT}?headerType=http&host=tbm-auth.alicdn.com#${LOC}"
 
 echo ""
