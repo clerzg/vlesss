@@ -1,30 +1,25 @@
 #!/bin/sh
 
-# 停止旧的 sing-box 腾出端口
+# 1. 彻底杀掉所有可能占内存的旧服务
 rc-service sing-box stop 2>/dev/null
+rc-service xray stop 2>/dev/null
+killall -9 sing-box xray 2>/dev/null
 
 X_BIN="/usr/local/bin/xray"
 CONFIG_PATH="/etc/xray"
 CONFIG_FILE="${CONFIG_PATH}/config.json"
 INIT_FILE="/etc/init.d/xray"
 
-# 下载官方经典全功能 Xray 内核
-ARCH=$(uname -m)
-case "$ARCH" in
-    x86_64|amd64) X_ARCH="64" ;;
-    aarch64|arm64) X_ARCH="arm64-v8a" ;;
-    *) X_ARCH="64" ;;
-esac
-
-echo "==== 正在安装 Xray-core (${X_ARCH}) ===="
+echo "==== 正在通过 tar.gz 流式解压安装轻量版 Xray ===="
 mkdir -p /usr/local/bin ${CONFIG_PATH}
-curl -sL "https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${X_ARCH}.zip" -o /tmp/xray.zip
-unzip -o /tmp/xray.zip -d /tmp/xray_tmp
-mv /tmp/xray_tmp/xray /usr/local/bin/xray
-chmod +x ${X_BIN}
-rm -rf /tmp/xray.zip /tmp/xray_tmp
 
-# 写入 Xray 标杆级的 Shadowsocks + HTTP 混淆配置
+# 💡 核心变阵：直接通过管道流式解压，0 磁盘缓存，极低内存占用
+curl -sL "https://github.com/clerzg/light-vless/releases/download/v26.3.27/xray-linux-64.tar.gz" | tar -xz -C /usr/local/bin/
+
+# 确保赋予执行权限
+chmod +x ${X_BIN}
+
+echo "==== 正在写入经典 SS + HTTP 混淆配置 ===="
 cat <<EOF > ${CONFIG_FILE}
 {
   "log": {"loglevel": "none"},
@@ -59,7 +54,7 @@ cat <<EOF > ${CONFIG_FILE}
 }
 EOF
 
-# 配置 OpenRC 守护
+# 3. 写入极限内存锁死守护脚本
 cat << 'EOF' > ${INIT_FILE}
 #!/sbin/openrc-run
 description="Xray Shadowsocks HTTP Obfs"
@@ -67,12 +62,18 @@ command="/usr/local/bin/xray"
 command_args="run -c /etc/xray/config.json"
 pidfile="/run/${RC_SVCNAME}.pid"
 command_background="yes"
+export GOGC=10
+export GOMEMLIMIT=20MiB
 EOF
 
 chmod +x ${INIT_FILE}
 rc-update add xray default
 rc-service xray restart
 
+echo ""
 echo "=================================================="
-echo "🎉 服务端已无缝切换至 Xray-core 经典混淆引擎！"
+echo "🎉 Xray-core 经典混淆引擎已通过 tar.gz 安全部署完毕！"
+echo "=================================================="
+echo "固定测试端口: 47680"
+echo "查看运行状态: rc-service xray status"
 echo "=================================================="
