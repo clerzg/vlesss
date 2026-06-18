@@ -1,62 +1,78 @@
 #!/bin/sh
 
-SB_BIN="/usr/local/bin/sing-box"
-CONFIG_PATH="/etc/sing-box"
+# 停止旧的 sing-box 腾出端口
+rc-service sing-box stop 2>/dev/null
+
+X_BIN="/usr/local/bin/xray"
+CONFIG_PATH="/etc/xray"
 CONFIG_FILE="${CONFIG_PATH}/config.json"
-INIT_FILE="/etc/init.d/sing-box"
+INIT_FILE="/etc/init.d/xray"
 
-SB_VERSION="1.11.3"
-MY_RELEASE_URL="https://github.com/SagerNet/sing-box/releases/download/v${SB_VERSION}"
-
-PORT=47680
-SS_PASSWORD="5dfbd537137cb6d5"
-
-INFO=$(curl -s "https://www.cloudflare.com/cdn-cgi/trace")
-IP=$(echo "${INFO}" | awk -F= '/^ip=/ {print $2}')
-LOC=$(echo "${INFO}" | awk -F= '/^loc=/ {print $2}')
-
-echo "==== 下载官方全功能版 sing-box ===="
+# 下载官方经典全功能 Xray 内核
 ARCH=$(uname -m)
 case "$ARCH" in
-    x86_64|amd64) SB_ARCH="amd64" ;;
-    aarch64|arm64) SB_ARCH="arm64" ;;
-    *) SB_ARCH="amd64" ;;
+    x86_64|amd64) X_ARCH="64" ;;
+    aarch64|arm64) X_ARCH="arm64-v8a" ;;
+    *) X_ARCH="64" ;;
 esac
 
-DOWNLOAD_URL="${MY_RELEASE_URL}/sing-box-${SB_VERSION}-linux-${SB_ARCH}.tar.gz"
-mkdir -p /usr/local/bin
+echo "==== 正在安装 Xray-core (${X_ARCH}) ===="
+mkdir -p /usr/local/bin ${CONFIG_PATH}
+curl -sL "https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-${X_ARCH}.zip" -o /tmp/xray.zip
+unzip -o /tmp/xray.zip -d /tmp/xray_tmp
+mv /tmp/xray_tmp/xray /usr/local/bin/xray
+chmod +x ${X_BIN}
+rm -rf /tmp/xray.zip /tmp/xray_tmp
 
-mkdir -p ${CONFIG_PATH}
-
-# 服务端依然使用成熟稳定的 obfs-server 接收明文 HTTP
+# 写入 Xray 标杆级的 Shadowsocks + HTTP 混淆配置
 cat <<EOF > ${CONFIG_FILE}
 {
-  "log": {"disabled": true},
+  "log": {"loglevel": "none"},
   "inbounds": [
     {
-      "type": "shadowsocks",
-      "listen": "::",
-      "listen_port": ${PORT},
-      "method": "aes-128-gcm",
-      "password": "${SS_PASSWORD}",
-      "plugin": "obfs-server",
-      "plugin_options": "obfs=http"
+      "port": 47680,
+      "protocol": "shadowsocks",
+      "settings": {
+        "method": "aes-128-gcm",
+        "password": "5dfbd537137cb6d5",
+        "network": "tcp"
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "tcpSettings": {
+          "header": {
+            "type": "http",
+            "request": {
+              "version": "1.1",
+              "method": "GET",
+              "path": ["/"],
+              "headers": {
+                "Host": ["tbm-auth.alicdn.com"]
+              }
+            }
+          }
+        }
+      }
     }
   ],
-  "outbounds": [{"type": "direct"}],
-  "experimental": {"cache_file": {"enabled": false}}
+  "outbounds": [{"protocol": "freedom"}]
 }
 EOF
 
+# 配置 OpenRC 守护
+cat << 'EOF' > ${INIT_FILE}
+#!/sbin/openrc-run
+description="Xray Shadowsocks HTTP Obfs"
+command="/usr/local/bin/xray"
+command_args="run -c /etc/xray/config.json"
+pidfile="/run/${RC_SVCNAME}.pid"
+command_background="yes"
+EOF
 
-rc-service sing-box restart
+chmod +x ${INIT_FILE}
+rc-update add xray default
+rc-service xray restart
 
-echo ""
 echo "=================================================="
-echo "🎉 服务端配置成功！下面为您提供客户端直连 URL 链接："
-echo "=================================================="
-echo "👉 复制下方链接在 sing-box 客户端中添加 Profile，"
-echo "👉 并在 Type（类型）中直接选择 URL（远程导入）："
-echo "--------------------------------------------------"
-echo "ss://YWVzLTEyOC1nY206NWRmYmQ1MzcxMzdjYjZkNQ==@${IP}:${PORT}?plugin=simple-obfs%3Bobfs%3Dhttp%3Bobfs-host%3Dtbm-auth.alicdn.com#${LOC}_SS_OBFS"
+echo "🎉 服务端已无缝切换至 Xray-core 经典混淆引擎！"
 echo "=================================================="
