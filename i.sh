@@ -9,7 +9,7 @@ MY_RELEASE_URL="https://github.com/clerzg/vlesss/releases/latest/download"
 INFO=$(curl -s "https://www.cloudflare.com/cdn-cgi/trace")
 IP=$(echo "${INFO}" | awk -F= '/^ip=/ {print $2}')
 LOC=$(echo "${INFO}" | awk -F= '/^loc=/ {print $2}')
-PORT=$(awk 'BEGIN{srand(); print int(rand()*(60000-10000+1))+10000}')
+PORT=$(awk 'BEGIN{srand(); print int(rand()*40000)+20000}')
 
 echo "下载 sing-box"
 ARCH=$(uname -m)
