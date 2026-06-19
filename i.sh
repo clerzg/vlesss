@@ -48,19 +48,19 @@ fi
 mkdir -p ${CONFIG_PATH}
 
 cat <<EOF > ${CONFIG_FILE}
-{"log":{"disabled":true},"inbounds":[{"type":"vless","listen":"::","listen_port":${PORT},"users":[{"uuid":"${UUID}"}],"transport":{"type":"http","host":[]}}],"outbounds":[{"type":"direct"}],"experimental":{"cache_file":{"enabled":false}}}
+{"log":{"disabled":true},"inbounds":[{"type":"vless","listen":"::","listen_port":${PORT},"users":[{"uuid":"${UUID}"}],"transport":{"type":"ws"}}],"outbounds":[{"type":"direct"}]}
 EOF
 
 cat << 'EOF' > ${INIT_FILE}
 #!/sbin/openrc-run
-description="Sing-box Hardcore Minimal Service"
+description="Sing-box Minimal Service"
 command="/usr/local/bin/sing-box"
 command_args="run -c /etc/sing-box/config.json"
 pidfile="/run/${RC_SVCNAME}.pid"
 command_background="yes"
 
-export GOGC=20
-export GOMEMLIMIT=25MiB
+export GOGC=10
+export GOMEMLIMIT=20MiB
 
 respawn_delay=1
 respawn_max=0
@@ -74,7 +74,7 @@ echo ""
 echo "🎉 sing-box 部署完成！"
 echo ""
 echo "🚀节点链接："
-echo "vless://${UUID}@${IP}:${PORT}?headerType=http&host=tbm-auth.alicdn.com#${LOC}"
+echo "vless://${UUID}@${IP}:${PORT}?type=ws&host=tbm-auth.alicdn.com#${LOC}"
 
 echo ""
 echo ""
