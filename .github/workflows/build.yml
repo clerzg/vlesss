@@ -10,7 +10,6 @@ jobs:
       contents: write
     strategy:
       matrix:
-        # 定义多架构矩阵，同时编译 amd64 和 arm64
         goarch: [amd64, arm64]
     steps:
       - name: Get Latest Stable Tag
@@ -28,40 +27,28 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: 'stable'
 
       - name: Build and Optimize
         run: |
           cd cmd/sing-box
-          # 根据矩阵参数动态设置 GOARCH 目标架构
-          # GOOS=linux 确保编译为 Linux 平台运行的二进制
           CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.goarch }} go build -v \
-            -tags "with_vless,with_tcp" \
+            -tags "with_vless,with_tcp,with_websocket" \
             -trimpath \
             -ldflags "-s -w -buildid=" \
             -o ../../sing-box
 
       - name: Pack and Gzip Minimal
         run: |
-          # 1. 创建临时的独立架构目录，确保压缩包内部解压出来的文件名统一为 sing-box
-          mkdir -p sing-box-linux-${{ matrix.goarch }}
-          mv sing-box sing-box-linux-${{ matrix.goarch }}/
-          
-          # 2. 使用 tar gzip 极致压缩参数（GZIP=-9 启用最高级别压缩率）
-          GZIP=-9 tar -czf sing-box-linux-${{ matrix.goarch }}.tar.gz -C sing-box-linux-${{ matrix.goarch }} sing-box
+          GZIP=-9 tar -czf sing-box-linux-${{ matrix.goarch }}.tar.gz sing-box
 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.get_tag.outputs.tag }}
-          # 自动将对应架构的压缩包上传到同一个 Release 页面
           files: sing-box-linux-${{ matrix.goarch }}.tar.gz
           draft: false
           prerelease: false
           body: |
-            ## Sing-box 纯原生低内存双架构版
-            
             - **同步官方版本**: `${{ steps.get_tag.outputs.tag }}`
-            - **协议裁剪**: 仅保留 `VLESS` + `TCP` 核心
-            - **打包策略**: 压缩包内统一重命名为 `sing-box`，外层以架构命名区分，采用 `GZIP -9` 极限压缩。
-            - **内存特性**: **无 UPX 压缩**，完美触发 Linux 内存按需加载机制，常驻运行内存仅 ~9MB。
+            - **协议裁剪**: 仅保留 `VLESS` + `TCP` + `WebSocket`
