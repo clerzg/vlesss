@@ -38,16 +38,18 @@ jobs:
             -trimpath \
             -ldflags "-s -w -buildid=" \
             -o ../../sing-box
+          cd ../../
+          strip --strip-all sing-box
 
-      - name: Pack and Gzip Minimal
+      - name: Pack and XZ Minimal
         run: |
-          GZIP=-9 tar -czf sing-box-linux-${{ matrix.goarch }}.tar.gz sing-box
+          tar -cJf sing-box-linux-${{ matrix.goarch }}.tar.xz sing-box
 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.get_tag.outputs.tag }}
-          files: sing-box-linux-${{ matrix.goarch }}.tar.gz
+          files: sing-box-linux-${{ matrix.goarch }}.tar.xz
           draft: false
           prerelease: false
           body: |
