@@ -34,7 +34,7 @@ jobs:
         run: |
           cd cmd/sing-box
           CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.goarch }} go build -v \
-            -tags "with_vless,with_tcp,with_websocket" \
+            -tags "with_vless,with_tcp" \
             -trimpath \
             -ldflags "-s -w -buildid=" \
             -o ../../sing-box
@@ -52,4 +52,4 @@ jobs:
           prerelease: false
           body: |
             - **同步官方版本**: `${{ steps.get_tag.outputs.tag }}`
-            - **协议裁剪**: 仅保留 `VLESS` + `TCP` + `WebSocket`
+            - **协议裁剪**: 仅保留 `VLESS` + `TCP`
