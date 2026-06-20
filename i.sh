@@ -6,7 +6,7 @@ CONFIG_FILE="${CONFIG_PATH}/config.json"
 INIT_FILE="/etc/init.d/sing-box"
 MY_RELEASE_URL="https://github.com/clerzg/vlesss/releases/latest/download"
 
-INFO=$(wget -qO- "https://www.cloudflare.com/cdn-cgi/trace")
+INFO=$(wget -4 -qO- "https://www.cloudflare.com/cdn-cgi/trace")
 IP=$(echo "${INFO}" | awk -F= '/^ip=/ {print $2}')
 LOC=$(echo "${INFO}" | awk -F= '/^loc=/ {print $2}')
 PORT=$(awk 'BEGIN{srand(); print int(rand()*50000)+10000}')
