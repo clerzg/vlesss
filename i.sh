@@ -6,7 +6,7 @@ CONFIG_FILE="${CONFIG_PATH}/config.json"
 INIT_FILE="/etc/init.d/sing-box"
 MY_RELEASE_URL="https://github.com/clerzg/vlesss/releases/latest/download"
 
-INFO=$(curl -s "https://www.cloudflare.com/cdn-cgi/trace")
+INFO=$(wget -qO- "https://www.cloudflare.com/cdn-cgi/trace")
 IP=$(echo "${INFO}" | awk -F= '/^ip=/ {print $2}')
 LOC=$(echo "${INFO}" | awk -F= '/^loc=/ {print $2}')
 PORT=$(awk 'BEGIN{srand(); print int(rand()*50000)+10000}')
@@ -22,7 +22,7 @@ esac
 DOWNLOAD_URL="${MY_RELEASE_URL}/sing-box-linux-${SB_ARCH}.tar.xz"
 mkdir -p /usr/local/bin
 
-curl -sL -# "${DOWNLOAD_URL}" | tar -xf -C /usr/local/bin/
+wget -qO- "${DOWNLOAD_URL}" | tar -xf -C /usr/local/bin/
 
 if [ $? -eq 0 ] && [ -s ${SB_BIN} ]; then
     chmod +x ${SB_BIN}
