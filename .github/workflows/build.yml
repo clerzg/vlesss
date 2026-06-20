@@ -41,7 +41,7 @@ jobs:
 
       - name: Pack and XZ Minimal
         run: |
-          XZ_OPT=-9e tar -cJf sing-box-linux-${{ matrix.goarch }}.tar.xz sing-box
+          tar -cJf sing-box-linux-${{ matrix.goarch }}.tar.xz sing-box
 
       - name: Release
         uses: softprops/action-gh-release@v2
