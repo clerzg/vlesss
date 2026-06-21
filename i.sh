@@ -74,7 +74,7 @@ echo ""
 echo "🎉 sing-box 部署完成！"
 echo ""
 echo "🚀节点链接："
-echo "vless://${UUID}@${IP}:${PORT}?headerType=http&host=tbm-auth.alicdn.com#${LOC}"
+echo "vless://${UUID}@${IP}:${PORT}?headerType=http&host=gw.alicdn.com#${LOC}"
 
 echo ""
 echo ""
