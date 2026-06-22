@@ -48,7 +48,7 @@ fi
 mkdir -p ${CONFIG_PATH}
 
 cat <<EOF > ${CONFIG_FILE}
-{"log":{"disabled":true},"inbounds":[{"type":"vless","listen":"::","listen_port":${PORT},"users":[{"uuid":"${UUID}"}],"transport":{"type":"http","host":[]}}],"outbounds":[{"type":"direct"}]}
+{"log":{"disabled":true},"inbounds":[{"type":"vless","listen":"::","listen_port":${PORT},"users":[{"uuid":"${UUID}"}],"transport":{"type":"http","host":[]}}],"outbounds":[{"type":"direct","domain_strategy":"prefer_ipv6"}]}
 EOF
 
 cat << 'EOF' > ${INIT_FILE}
