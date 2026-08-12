@@ -1,5 +1,10 @@
 #!/bin/sh
 
+if [ ! -f /etc/alpine-release ]; then
+    echo "❌ 错误：仅支持 Alpine Linux"
+    exit 1
+fi
+
 SB_BIN="/usr/local/bin/sing-box"
 CONFIG_PATH="/etc/sing-box"
 CONFIG_FILE="${CONFIG_PATH}/config.json"
@@ -22,7 +27,7 @@ esac
 DOWNLOAD_URL="${MY_RELEASE_URL}/sing-box-linux-${SB_ARCH}.tar.xz"
 mkdir -p /usr/local/bin
 
-wget -O- "${DOWNLOAD_URL}" | tar -xJ -C /usr/local/bin/
+wget -qO- "${DOWNLOAD_URL}" | tar -xJ -C /usr/local/bin/
 
 if [ $? -eq 0 ] && [ -s ${SB_BIN} ]; then
     chmod +x ${SB_BIN}
